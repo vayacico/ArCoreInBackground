@@ -28,14 +28,29 @@
             android:id="@+id/debug_btn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="debug"
+            android:text="Bind"
             />
         <Button
             android:id="@+id/debug_btn2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="debug"
+            android:text="unBind"
             />
+
+        <Button
+            android:id="@+id/debug_btn3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Start ArCore"
+            />
+
+        <Button
+            android:id="@+id/debug_btn4"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Stop ArCore"
+            />
+
         <EditText
             android:id="@+id/edit_text"
             android:layout_width="match_parent"

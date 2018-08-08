@@ -17,16 +17,20 @@ import android.widget.EditText;
 public class MainActivity extends AppCompatActivity {
 
     static Integer OVERLAY_PERMISSION_REQ_CODE = 1234;
+    ArCoreService arCoreService;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button startBtn = findViewById(R.id.start_btn);
-        Button stopBtn  = findViewById(R.id.stop_btn);
+        final Button startBtn = findViewById(R.id.start_btn);
+        final Button stopBtn  = findViewById(R.id.stop_btn);
         Button debugBtn = findViewById(R.id.debug_btn);
         Button debugBtn2 = findViewById(R.id.debug_btn2);
+        Button debugBtn3 = findViewById(R.id.debug_btn3);
+        Button debugBtn4 = findViewById(R.id.debug_btn4);
 
         startBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -42,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
                     Intent intent = new Intent(getApplication(), ArCoreService.class);
                     intent.putExtra("ip_address",editText.getText().toString());
                     startForegroundService(intent);
+
                 }
             }
         });
@@ -69,12 +74,39 @@ public class MainActivity extends AppCompatActivity {
                 unbindService(mConnection);
             }
         });
+
+        debugBtn3.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(arCoreService==null)return;
+
+                boolean result = arCoreService.startArCoreSession();
+
+                if(result){
+                    Log.d("startArCoreSession","Success");
+                }else{
+                    Log.d("startArCoreSession","Failed");
+                }
+            }
+        });
+
+        debugBtn4.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(arCoreService!=null){
+                    arCoreService.stopArCoreSession();
+                }
+            }
+        });
     }
 
     private ServiceConnection mConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             Log.d("MainActivity","onServiceConnected");
+
+            arCoreService =  ((ArCoreService.MyServiceLocalBinder)service).getService();
+
         }
 
         @Override

@@ -2,16 +2,26 @@ package com.vayacico.arcoreinbackground;
 
 import android.app.Notification;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.graphics.PixelFormat;
 import android.opengl.GLSurfaceView;
 import android.os.Binder;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 
+import com.google.ar.core.Frame;
+import com.google.ar.core.Pose;
 import com.google.ar.core.Session;
+import com.google.ar.core.exceptions.CameraNotAvailableException;
+
+import org.zeromq.ZMQ;
 
 import java.io.IOException;
 
@@ -47,13 +57,14 @@ public class ArCoreService extends Service  implements GLSurfaceView.Renderer{
 
         Log.d("ArCoreService","onCreate:"+android.os.Process.myPid());
 
+        //For Running test
         thread = new Thread(new Runnable() {
             @Override
             public void run() {
                 while (running){
                     try {
                         Log.d("Thread","running:"+android.os.Process.myPid());
-                        Thread.sleep(200);
+                        Thread.sleep(1000);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -61,17 +72,6 @@ public class ArCoreService extends Service  implements GLSurfaceView.Renderer{
             }
         });
         thread.start();
-
-        //ArCoreの初期化・開始
-        /*if(mSession==null) {
-            try {
-                mSession = new Session(this);
-                mSession.resume();
-            } catch (Exception e) {
-                e.printStackTrace();
-                return;
-            }
-        }
 
         //オーバーレイの設定
         LayoutInflater layoutInflater = LayoutInflater.from(this);
@@ -103,15 +103,6 @@ public class ArCoreService extends Service  implements GLSurfaceView.Renderer{
         surfaceView.setRenderer(this);
         surfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
 
-        //API接続
-        zeromqContext = org.zeromq.ZMQ.context(1);
-        socket = zeromqContext.socket(ZMQ.REQ);
-        Log.d("ip_address",ip_address);
-        socket.connect("tcp://"+ip_address);
-        //socket.setSendTimeOut(3);
-        //socket.setReceiveTimeOut(3);
-        Log.d("JeroMQ","Connect");*/
-
     }
 
     @Override
@@ -137,7 +128,11 @@ public class ArCoreService extends Service  implements GLSurfaceView.Renderer{
         Log.d("ArCoreService","onDestroy");
 
         running = false;
-
+        windowManager.removeView(view);
+        if(mSession!=null) {
+            mSession.pause();
+            mSession = null;
+        }
         super.onDestroy();
     }
 
@@ -186,7 +181,63 @@ public class ArCoreService extends Service  implements GLSurfaceView.Renderer{
     @Override
     public void onDrawFrame(GL10 gl) {
 
+        if(mSession==null || backgroundRenderer.getTextureId()==-1){
+            return;
+        }
+
+        try {
+            //フレームデータの取得
+            mSession.setCameraTextureName(backgroundRenderer.getTextureId());
+            Frame frame = mSession.update();
+
+            //フレームからポジショントラッキングデータの取り出し
+            Pose pose = frame.getCamera().getDisplayOrientedPose();
+            float[] axis = frame.getCamera().getPose().getZAxis();
+
+            //Proto化
+            ARCoreProto.Position position = ARCoreProto.Position.newBuilder().setTx(pose.tx()).setTy(pose.ty()).setTz(pose.tz()).build();
+            ARCoreProto.Rotation rotation = ARCoreProto.Rotation.newBuilder().setQw(pose.qw()).setQx(pose.qx()).setQy(pose.qy()).setQz(pose.qz()).build();
+            ARCoreProto.ZAxis zAxis = ARCoreProto.ZAxis.newBuilder().setX(axis[0]).setY(axis[1]).setZ(axis[2]).build();
+            ARCoreProto.ArCoreMessage message = ARCoreProto.ArCoreMessage.newBuilder().setPosition(position).setRotation(rotation).setZaxis(zAxis).build();
+
+            Log.d("onDrawFrame",message.toString());
+
+        } catch (CameraNotAvailableException e) {
+            e.printStackTrace();
+        }
+
+
     }
 
+
+    boolean startArCoreSession(){
+
+        if(mSession==null) {
+            try {
+                mSession = new Session(this);
+                mSession.resume();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void stopArCoreSession(){
+        if(mSession==null)return;
+        mSession.pause();
+        mSession=null;
+    }
+
+    boolean connectToPC(){
+
+        zeromqContext = org.zeromq.ZMQ.context(1);
+        socket = zeromqContext.socket(ZMQ.REQ);
+        Log.d("ip_address",ip_address);
+        socket.connect("tcp://"+ip_address);
+
+        return true;
+    }
 
 }
